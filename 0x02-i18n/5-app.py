@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
-"""Module for task 5
-"""
-from flask import Flask, render_template, request, g
-from flask_babel import Babel, _
+'''Task 4: Force locale with URL parameter
+'''
 
-# Mock user database
+from typing import Dict, Union
+from flask import Flask, render_template, request, g
+from flask_babel import Babel
+
+
+class Config:
+    '''Config class'''
+
+    DEBUG = True
+    LANGUAGES = ["en", "fr"]
+    BABEL_DEFAULT_LOCALE = "en"
+    BABEL_DEFAULT_TIMEZONE = "UTC"
+
+
+app = Flask(__name__)
+app.config.from_object(Config)
+app.url_map.strict_slashes = False
+babel = Babel(app)
+
 users = {
     1: {"name": "Balou", "locale": "fr", "timezone": "Europe/Paris"},
     2: {"name": "Beyonce", "locale": "en", "timezone": "US/Central"},
@@ -13,28 +29,29 @@ users = {
 }
 
 
-class Config:
+def get_user() -> Union[Dict, None]:
+    """Retrieves a user based on a user id.
     """
-    Configuration class for the Flask app.
+    login_id = request.args.get('login_as')
+    if login_id:
+        return users.get(int(login_id))
+    return None
+
+
+@app.before_request
+def before_request() -> None:
+    """Performs some routines before each request's resolution.
     """
-    LANGUAGES = ["en", "fr"]
-    BABEL_DEFAULT_LOCALE = "en"
-    BABEL_DEFAULT_TIMEZONE = "UTC"
 
-
-app = Flask(__name__)
-app.config.from_object(Config)
-
-babel = Babel(app)
+    g.user = get_user()
 
 
 @babel.localeselector
-def get_locale():
-    """
-    Determine the best match for supported languages
-    or use the locale from the URL.
+def get_locale() -> str:
+    """Retrieves the locale for a web page.
 
-    :return: Best match locale or the one provided in the URL.
+    Returns:
+        str: best match
     """
     locale = request.args.get('locale')
     if locale in app.config['LANGUAGES']:
@@ -42,40 +59,20 @@ def get_locale():
     return request.accept_languages.best_match(app.config['LANGUAGES'])
 
 
-def get_user():
-    """
-    Mock function to get user information based on the login_as parameter
-
-    :return: User dictionary or None if not found or not logged in.
-    """
-    user_id = request.args.get('login_as')
-    if user_id and user_id.isdigit():
-        user_id = int(user_id)
-        return users.get(user_id)
-    return None
-
-
-@app.before_request
-def before_request():
-    """
-    Set the global user based on the login_as parameter if provided.
-    """
-    g.user = get_user()
-
-
 @app.route('/')
-def index():
-    """
-    Render the index.html template with localized
-    messages and user-specific information.
+def index() -> str:
+    '''default route
 
-    :return: Rendered HTML for the index page.
-    """
-    return render_template('5-index.html')
+    Returns:
+        html: homepage
+    '''
+    return render_template("5-index.html")
+
+# uncomment this line and comment the @babel.localeselector
+# you get this error:
+# AttributeError: 'Babel' object has no attribute 'localeselector'
+# babel.init_app(app, locale_selector=get_locale)
 
 
-if __name__ == '__main__':
-    """
-    Run the Flask application.
-    """
-    app.run(host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    app.run()
